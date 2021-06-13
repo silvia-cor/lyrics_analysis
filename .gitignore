@@ -1,2 +1,6 @@
 access_tokens.py
+__pycache__
 .vscode
+*.pyc
+*.csv
+*.log
