@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pickle
 import os
-from feature_extraction import tokenize_nopunct
+from preprocessing.feature_extraction import tokenize_nopunct
 
 
 def __clean_lyrics(lyrics):
@@ -29,7 +29,7 @@ def _fetch_lyrics(file_path):
 
 
 def fetch_dataset(pickle_path, lyrics_path, force=False):
-    if os.path.exists(pickle_path) and force is False:
+    if os.path.exists(pickle_path) and not force:
         with open(pickle_path, 'rb') as f:
             dataset = pickle.load(f)
     else:
