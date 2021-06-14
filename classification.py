@@ -1,10 +1,10 @@
-from sklearn.svm import LinearSVC
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import f1_score
-from feature_extraction import extract_features_authorship
+from preprocessing.feature_extraction import extract_features_authorship
 
 
-def SVM_classification(dataset, domain='authorship'):
+def kcv_classification(dataset, domain='authorship'):
     assert domain in ['authorship'], 'Only possible classification is with authorship atm'
     kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     y_all_pred = []
@@ -22,7 +22,7 @@ def SVM_classification(dataset, domain='authorship'):
         print("Training shape: ", X_tr.shape)
         print("Test shape: ", X_te.shape)
         print('CLASSIFICATION')
-        cls = LinearSVC(class_weight='balanced',  random_state=42, max_iter=100000).fit(X_tr, y_tr)
+        cls = KNeighborsClassifier(weights='distance', n_jobs=4)
         y_pred = cls.predict(X_te)
         f1 = f1_score(y_te, y_pred, average='macro')
         print(f'F1: {f1:.3f}')
