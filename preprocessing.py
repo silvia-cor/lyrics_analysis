@@ -18,7 +18,8 @@ def _fetch_lyrics(file_path):
     df = df[df['lyrics'].notna()]  # remove NaN
     df = df[df['lyrics'].str.split().str.len() <= 2000]  # remove books(?)
     df = df[df['lyrics'].str.split().str.len() > 5]  # remove almost-empty strings
-    df = df[df.groupby('artist').artist.transform('count') > 5]  # leaves only artists with n+ songs
+    df = df[df.groupby('artist').artist.transform('count') > 10]  # leaves only artists with n+ songs
+    df = df[df['artist'] != 'Glee Cast']  # bravi ma non orginali
     dataset = {}
     lyrics = df['lyrics']
     dataset['lyrics'] = np.array([__clean_lyrics(lyric) for lyric in lyrics])

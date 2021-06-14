@@ -6,5 +6,6 @@ dataset = fetch_dataset(pickle_path='data/dataset.pickle', lyrics_path='data/res
 
 print('#samples:', len(dataset['lyrics']))
 print('#artists:', len(np.unique(dataset['artists'])))
+print(np.unique(dataset['artists']))
 
 SVM_classification(dataset)
