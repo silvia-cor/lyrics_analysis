@@ -46,7 +46,7 @@ def fetch_lyrics(csv_path='charts.csv', output_path='results.csv'):
 
 def fetch_genre(csv_path='results.csv', output_path='results_genre.csv'):
     df = pd.read_csv(csv_path)
-    df['genres'] = None
+    df['genre'] = None
     df['duration'] = None
     lastfm = pylast.LastFMNetwork(api_key=credentials['lastfm']['key'], api_secret=credentials['lastfm']['secret'])
     for i, row in tqdm(df.iterrows(), total=len(df)):
