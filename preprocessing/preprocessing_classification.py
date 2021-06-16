@@ -1,4 +1,5 @@
 from enum import unique
+import numpy.random
 import pandas as pd
 import re
 import numpy as np
@@ -8,6 +9,7 @@ import typing
 from preprocessing.feature_extraction import tokenize_nopunct
 from datetime import datetime
 from tqdm import tqdm
+
 
 genres_acc = ['pop', 'progressive rock', 'rock', 'metal', 'country', 'rnb', 'funk', 'hip-hop', 'alternative',
               'rap', 'disco', 'folk', 'jazz', 'blues', 'indie', 'christmas', 'soul', 'reggae', 'gospel', 'latin']
@@ -80,6 +82,7 @@ def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df.genre.notna()]
     df = df[df.lyrics.str.split().str.len() <= 2000]  # remove books(?)
     df = df[df.lyrics.str.split().str.len() > 5]  # remove almost-empty strings
+    df = df[df.groupby('artist').artist.transform('count') > 10]  # leaves only artists with n+ songs
     df = df[df['artist'] != 'Glee Cast']  # bravi ma non orginali
     df['lyrics'] = df['lyrics'].apply(_clean_lyrics)
     df['genre'] = df['genre'].apply(_get_genre)
@@ -96,7 +99,15 @@ def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
     return dataset
 
 
-def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False) -> typing.Union[pd.DataFrame, typing.Dict[str, np.ndarray]]:
+def select_random_authors(df, n_authors):
+    authors = np.unique(df['artist'])
+    np.random.seed(42)
+    selected_authors = np.random.choice(authors, n_authors, replace=False)
+    df = df.loc[df['artist'].isin(selected_authors)]
+    return df
+
+
+def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, random_authors=0):
     if pickle_path is not None and os.path.exists(pickle_path) and not force:
         with open(pickle_path, 'rb') as f:
             dataset = pickle.load(f)
@@ -107,10 +118,12 @@ def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False) -> typin
             pass
         df = pd.read_csv(lyrics_path)
         dataset = clean_dataset(df)
-        if as_dict:
-            dataset = df_as_dict(dataset)
         
         if pickle_path is not None:
             with open(pickle_path, 'wb') as f:
                 pickle.dump(dataset, f)
+    if random_authors != 0:
+        dataset = select_random_authors(dataset, random_authors)
+    if as_dict:
+        dataset = df_as_dict(dataset)
     return dataset
