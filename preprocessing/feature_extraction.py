@@ -1,4 +1,5 @@
 import nltk
+import typing
 from nltk.corpus import stopwords
 from scipy.sparse import hstack, csr_matrix
 from sklearn.preprocessing import normalize
@@ -7,7 +8,7 @@ from sklearn.feature_selection import SelectKBest, chi2
 
 
 # tokenize text without punctuation
-def tokenize_nopunct(text):
+def tokenize_nopunct(text: str) -> typing.List[str]:
     unmod_tokens = nltk.word_tokenize(text)
     return [token.lower() for token in unmod_tokens if any(char.isalpha() for char in token)]  # checks whether all the chars are alphabetic
 

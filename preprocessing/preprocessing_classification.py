@@ -80,12 +80,11 @@ def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df.genre.notna()]
     df = df[df.lyrics.str.split().str.len() <= 2000]  # remove books(?)
     df = df[df.lyrics.str.split().str.len() > 5]  # remove almost-empty strings
-    df = df[df.groupby('artist').artist.transform('count') > 5]  # leaves only artists with n+ songs
     df = df[df['artist'] != 'Glee Cast']  # bravi ma non orginali
     df['lyrics'] = df['lyrics'].apply(_clean_lyrics)
     df['genre'] = df['genre'].apply(_get_genre)
     df = df[df.genre != 'wtf']
-    return df
+    return df[df.groupby('artist').artist.transform('count') > 5]  # leaves only artists with n+ songs
 
 
 def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
@@ -98,7 +97,7 @@ def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
 
 
 def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False) -> typing.Union[pd.DataFrame, typing.Dict[str, np.ndarray]]:
-    if os.path.exists(pickle_path) and not force:
+    if pickle_path is not None and os.path.exists(pickle_path) and not force:
         with open(pickle_path, 'rb') as f:
             dataset = pickle.load(f)
     else:
@@ -110,7 +109,8 @@ def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False) -> typin
         dataset = clean_dataset(df)
         if as_dict:
             dataset = df_as_dict(dataset)
-        with open(pickle_path, 'wb') as f:
-            pickle.dump(dataset, f)
-
+        
+        if pickle_path is not None:
+            with open(pickle_path, 'wb') as f:
+                pickle.dump(dataset, f)
     return dataset

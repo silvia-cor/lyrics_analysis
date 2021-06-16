@@ -17,6 +17,11 @@ class TestPreprocessing(unittest.TestCase):
         test_rank = (test_rank_sum + (101 * (total_num_weeks - len(test_rank)))) / total_num_weeks
         self.assertEqual(df[df.song == test_song]['rank_alltime'][0], test_rank)
 
+    def test_songs_for_author(self):
+        df = clean_dataset(self.df)
+        artists = df.drop_duplicates('artist')
+        self.assertTrue(all((df.artist == artist).sum() > 5 for artist in artists.artist))
+
 
 if __name__ == '__main__':
     unittest.main()
