@@ -4,11 +4,11 @@ from preprocessing import *
 
 class TestPreprocessing(unittest.TestCase):
     def setUp(self):
-        self.df = pd.read_csv('results_genre.csv')
+        self.df = pd.read_csv('../data/results_genre.csv')
 
     def test_add_chart_info(self):
-        df = add_chart_info(self.df, 'charts.csv')
-        charts = pd.read_csv('charts.csv')
+        df = add_chart_info(self.df, '../data/charts.csv')
+        charts = pd.read_csv('../data/charts.csv')
         charts.date = pd.to_datetime(charts.date, format='%Y-%m-%d')
         test_song = "Poor Little Fool"
         test_rank = charts[charts.song == test_song]
@@ -20,7 +20,7 @@ class TestPreprocessing(unittest.TestCase):
     def test_songs_for_author(self):
         df = clean_dataset(self.df)
         artists = df.drop_duplicates('artist')
-        self.assertTrue(all((df.artist == artist).sum() > 5 for artist in artists.artist))
+        self.assertTrue(all((df.artist == artist).sum() > 10 for artist in artists.artist))
 
 
 if __name__ == '__main__':

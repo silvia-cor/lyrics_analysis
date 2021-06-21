@@ -1,18 +1,24 @@
+<<<<<<< HEAD
 from enum import unique
 import numpy.random
+=======
+>>>>>>> d0181a7... Binary classification
 import pandas as pd
 import re
 import numpy as np
 import pickle
 import os
 import typing
+<<<<<<< HEAD
 from preprocessing.feature_extraction import tokenize_nopunct
+=======
+>>>>>>> d0181a7... Binary classification
 from datetime import datetime
 from tqdm import tqdm
 
 
 genres_acc = ['pop', 'progressive rock', 'rock', 'metal', 'country', 'rnb', 'funk', 'hip-hop', 'alternative',
-              'rap', 'disco', 'folk', 'jazz', 'blues', 'indie', 'christmas', 'soul', 'reggae', 'gospel', 'latin']
+              'rap', 'disco', 'folk', 'jazz', 'blues', 'indie', 'christmas', 'soul']
 
 
 def _get_genre(sub_genres):
@@ -23,12 +29,8 @@ def _get_genre(sub_genres):
             return genres_acc.index('metal')
         if sub_genre in ['electronic', 'dance', 'dancehall']:
             return genres_acc.index('disco')
-        if 'christian' in sub_genre:
-            return genres_acc.index('gospel')
         if 'hip hop' in sub_genre or 'hiphop' in sub_genre:
             return genres_acc.index('hip-hop')
-        if 'spanish' in sub_genre:
-            return genres_acc.index('latin')
         if sub_genre == 'r&b' or 'doo wop' in sub_genre:
             return genres_acc.index('rnb')
         for genre in genres_acc:
@@ -82,12 +84,15 @@ def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df.genre.notna()]
     df = df[df.lyrics.str.split().str.len() <= 2000]  # remove books(?)
     df = df[df.lyrics.str.split().str.len() > 5]  # remove almost-empty strings
-    df = df[df.groupby('artist').artist.transform('count') > 10]  # leaves only artists with n+ songs
     df = df[df['artist'] != 'Glee Cast']  # bravi ma non orginali
     df['lyrics'] = df['lyrics'].apply(_clean_lyrics)
     df['genre'] = df['genre'].apply(_get_genre)
     df = df[df.genre != 'wtf']
+<<<<<<< HEAD
     return df[df.groupby('artist').artist.transform('count') > 5]  # leaves only artists with n+ songs
+=======
+    return df[df.groupby('artist').artist.transform('count') >= 20]  # leaves only artists with n+ songs
+>>>>>>> d0181a7... Binary classification
 
 
 def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
@@ -99,31 +104,37 @@ def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
     return dataset
 
 
-def select_random_authors(df, n_authors):
+def select_random_authors(df, n_authors, seed):
     authors = np.unique(df['artist'])
-    np.random.seed(42)
+    np.random.seed(seed)
     selected_authors = np.random.choice(authors, n_authors, replace=False)
     df = df.loc[df['artist'].isin(selected_authors)]
     return df
 
 
+<<<<<<< HEAD
 def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, random_authors=0):
+=======
+def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, random_authors=0, seed=42) -> typing.Union[pd.DataFrame, typing.Dict[str, np.ndarray]]:
+>>>>>>> d0181a7... Binary classification
     if pickle_path is not None and os.path.exists(pickle_path) and not force:
         with open(pickle_path, 'rb') as f:
             dataset = pickle.load(f)
     else:
-        try:
-            os.remove(pickle_path)
-        except OSError:
-            pass
         df = pd.read_csv(lyrics_path)
         dataset = clean_dataset(df)
+<<<<<<< HEAD
         
         if pickle_path is not None:
             with open(pickle_path, 'wb') as f:
                 pickle.dump(dataset, f)
+=======
+        dataset = add_chart_info(dataset, 'data/charts.csv')
+        with open(pickle_path, 'wb') as f:
+            pickle.dump(dataset, f)
+>>>>>>> d0181a7... Binary classification
     if random_authors != 0:
-        dataset = select_random_authors(dataset, random_authors)
+        dataset = select_random_authors(dataset, random_authors, seed)
     if as_dict:
         dataset = df_as_dict(dataset)
     return dataset
