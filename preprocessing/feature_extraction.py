@@ -1,11 +1,19 @@
 import nltk
+import numpy as np
 import typing
 from nltk.corpus import stopwords
+import prosodic
 from scipy.sparse import hstack, csr_matrix
 from sklearn.preprocessing import normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_selection import SelectKBest, chi2
+import sys
+import os
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
+
+# TODO: feature selection for everything
 
 # tokenize text without punctuation
 def tokenize_nopunct(text: str) -> typing.List[str]:
@@ -59,22 +67,49 @@ def _POS_tags(docs):
     return pos_tags
 
 
-def _Pos_ngrams(docs_tr, docs_te):
-    vectorizer = TfidfVectorizer(analyzer='word', ngram_range=(2, 5))
-    X_tr = vectorizer.fit_transform(_POS_tags(docs_tr))
-    X_te = vectorizer.transform(_POS_tags(docs_te))
-    return X_tr, X_te
+# Todo: parallelize if you can
+def _prosody(docs):
+    prosodies = []
+    for doc in tqdm(docs):
+        for line in doc.splitlines():
+            print(line)
+            sys.__stdout__ = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
+            prosody = prosodic.Text(line)
+            prosody.parse()
+            sub_lines = []
+            sys.stdout = sys.__stdout__
+            for parse in prosody.bestParses():
+                if parse is not None:
+                    print(str(parse))
+                    sub_lines.append(str(parse))
+            prosodies.append(''.join(sub_line for sub_line in sub_lines))
+            #lines = [str(parse) for parse in prosody.bestParses()]
+    return prosodies
 
 
-def _feature_selection(docs_tr, docs_te, y_tr):
-    selector = SelectKBest(chi2, k=100)
-    X_tr = selector.fit_transform(docs_tr, y_tr)
-    X_te = selector.transform(docs_te)
-    return X_tr, X_te
+def _ngrams(docs_tr, docs_te, y_tr, analyzer, ngram_range, lowercase=True):
+    vectorizer = TfidfVectorizer(analyzer=analyzer, ngram_range=ngram_range, lowercase=lowercase)
+    X_tr = vectorizer.fit_transform(docs_tr)
+    X_te = vectorizer.transform(docs_te)
+    X_tr, X_te, selected = _feature_selection(X_tr, X_te, y_tr)
+    vocabs = list(vectorizer.vocabulary_.keys())
+    feat_names = [vocabs[i] for i in range(len(vectorizer.vocabulary_)) if selected[i]]
+    return X_tr, X_te, feat_names
 
 
-def extract_features_authorship(docs_tr, docs_te, y_tr):
-    print(f'----- AUTHORSHIP FEATURE EXTRACTION -----')
+def _feature_selection(X_tr, X_te, y_tr, feature_selection_ratio=0.05):
+    num_feats = int(X_tr.shape[1] * feature_selection_ratio)  # number of selected features (must be int)
+    selector = SelectKBest(chi2, k=num_feats)
+    X_tr = selector.fit_transform(X_tr, y_tr)
+    X_te = selector.transform(X_te)
+    return X_tr, X_te, selector.get_support()
+
+
+def extract_features_base(docs_tr, docs_te, y_tr):
+    print(f'----- BASE FEATURE EXTRACTION -----')
+    feat_names = []
+
     # final matrixes of features
     # initialize the right number of rows, or hstack won't work
     X_tr = csr_matrix((len(docs_tr), 0))
@@ -86,19 +121,51 @@ def extract_features_authorship(docs_tr, docs_te, y_tr):
     X_tr = hstack((X_tr, f))
     f = normalize(_function_words_freq(docs_te, fw))
     X_te = hstack((X_te, f))
+    feat_names = feat_names + fw
     print(f'task function words (#features={f.shape[1]}) [Done]')
 
     f = normalize(_word_lengths_freq(docs_tr))
     X_tr = hstack((X_tr, f))
     f = normalize(_word_lengths_freq(docs_te))
     X_te = hstack((X_te, f))
+    feat_names = feat_names + [i for i in range(1, 26)]
     print(f'task word lengths (#features={f.shape[1]}) [Done]')
 
-    f_tr, f_te = _Pos_ngrams(docs_tr, docs_te)
+    f_tr, f_te, f_names = _ngrams(_POS_tags(docs_tr), _POS_tags(docs_te), y_tr, 'word', (1, 3))
     X_tr = hstack((X_tr, f_tr))
     X_te = hstack((X_te, f_te))
+    feat_names = feat_names + f_names
     print(f'task POS-ngrams (#features={f_tr.shape[1]}) [Done]')
 
-    X_tr, X_te = _feature_selection(X_tr, X_te, y_tr)
+    return X_tr.toarray(), X_te.toarray(), feat_names
 
-    return X_tr.toarray(), X_te.toarray()
+
+def extract_features_charngrams(docs_tr, docs_te, y_tr):
+    print(f'----- CHAR-NGRAMS FEATURE EXTRACTION -----')
+    X_tr, X_te, feat_names = _ngrams(docs_tr, docs_te, y_tr, 'char', (2, 5))
+    print(f'task char-ngrams (#features={X_tr.shape[1]}) [Done]')
+    return X_tr.toarray(), X_te.toarray(), feat_names
+
+
+def extract_features_wordngrams(docs_tr, docs_te, y_tr):
+    print(f'----- WORD-NGRAMS FEATURE EXTRACTION -----')
+    X_tr, X_te, feat_names = _ngrams(docs_tr, docs_te, y_tr, 'word', (1, 3))
+    print(f'task word-ngrams (#features={X_tr.shape[1]}) [Done]')
+    return X_tr.toarray(), X_te.toarray(), feat_names
+
+
+def extract_features_prosody(docs_tr, docs_te, y_tr):
+    print(f'----- PROSODY-NGRAMS FEATURE EXTRACTION -----')
+    X_tr, X_te, feat_names = _ngrams(_prosody(docs_tr), _prosody(docs_te), y_tr, 'char', (2, 5), lowercase=False)
+    print(f'task prosody-ngrams (#features={X_tr.shape[1]}) [Done]')
+    return X_tr.toarray(), X_te.toarray(), feat_names
+
+
+# not counting prosody
+def extract_features_all(docs_tr, docs_te, y_tr):
+    X_tr_base, X_te_base, base_names = extract_features_base(docs_tr, docs_te, y_tr)
+    X_tr_charngrams, X_te_charngrams, char_names = extract_features_charngrams(docs_tr, docs_te, y_tr)
+    X_tr_wordngrams, X_te_wordngrams, word_names = extract_features_wordngrams(docs_tr, docs_te, y_tr)
+    return np.hstack((X_tr_base, X_tr_charngrams, X_tr_wordngrams)), \
+           np.hstack((X_te_base, X_te_charngrams, X_te_wordngrams)), \
+           base_names + char_names + word_names
