@@ -22,6 +22,13 @@ class TestPreprocessing(unittest.TestCase):
         artists = df.drop_duplicates('artist')
         self.assertTrue(all((df.artist == artist).sum() > 5 for artist in artists.artist))
 
+    def test_artist_mean_embedding(self):
+        df = clean_dataset(self.df)
+        glove = Glove('glove.twitter.27B.')
+        artist_mean = get_artist_mean_embeddings(df, glove)
+        self.assertIs(type(list(artist_mean.keys())[0]), str)
+        self.assertTrue(all(val.shape == (100,) for val in artist_mean.values()))
+
 
 if __name__ == '__main__':
     unittest.main()
