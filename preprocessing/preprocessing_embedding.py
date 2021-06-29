@@ -44,8 +44,13 @@ class Glove:
         return emb
 
 
-def get_author_mean_embeddings(df: pd.DataFrame, glove: Glove) -> typing.Dict[str, np.ndarray]:
-    pass
+def get_artist_mean_embeddings(df: pd.DataFrame, glove: Glove) -> typing.Dict[str, np.ndarray]:
+    artist_mean = {}
+    artists = df.drop_duplicates('artist').artist
+    for artist in tqdm(artists):
+        songs = np.vstack([glove.tokens_embedding(tokenize_nopunct(entry.lyrics)) for _, entry in df[df.artist == artist].iterrows()])
+        artist_mean[artist] = songs.mean(axis=0)
+    return artist_mean
 
 
 def get_lyrics_mean_embeddings(df: pd.DataFrame, glove: Glove) -> typing.Dict[str, np.ndarray]:

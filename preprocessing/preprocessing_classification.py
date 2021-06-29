@@ -1,18 +1,9 @@
-<<<<<<< HEAD
-from enum import unique
-import numpy.random
-=======
->>>>>>> d0181a7... Binary classification
 import pandas as pd
 import re
 import numpy as np
 import pickle
 import os
 import typing
-<<<<<<< HEAD
-from preprocessing.feature_extraction import tokenize_nopunct
-=======
->>>>>>> d0181a7... Binary classification
 from datetime import datetime
 from tqdm import tqdm
 
@@ -21,7 +12,7 @@ genres_acc = ['pop', 'progressive rock', 'rock', 'metal', 'country', 'rnb', 'fun
               'rap', 'disco', 'folk', 'jazz', 'blues', 'indie', 'christmas', 'soul']
 
 
-def _get_genre(sub_genres):
+def get_genre(sub_genres):
     sub_genres = sub_genres.split(':')
     for sub_genre in sub_genres:
         sub_genre = sub_genre.lower()
@@ -36,7 +27,7 @@ def _get_genre(sub_genres):
         for genre in genres_acc:
             if genre in sub_genre:
                 return genres_acc.index(genre)
-    return 'wtf'
+    return None
 
 
 remove_chorus = re.compile(r'\[[^\[]*?\]')
@@ -52,20 +43,27 @@ def _clean_lyrics(lyrics: str):
 
 
 def __mean_rank_join(df_to_group: pd.DataFrame, df_to_join: pd.DataFrame, num_weeks: float, mean_name: str, popul_name: str):
-    group = df_to_group.groupby('song').agg({'rank': 'sum', 'weeks-on-board': 'max'})
-    group[mean_name] = (group['rank'] + (101 * (num_weeks - group['weeks-on-board']))) / num_weeks
-    group[popul_name] = (101 - group['rank']) * group['weeks-on-board']
-    return df_to_join.join(group.drop(columns=['rank', 'weeks-on-board']), 'song')
+    group = df_to_group.groupby('song').agg(rank=pd.NamedAgg(column='rank', aggfunc='sum'), 
+                                            weeks_on_board=pd.NamedAgg(column='weeks-on-board', aggfunc='max'),
+                                            popul=pd.NamedAgg(column='rank', aggfunc=lambda r: (101 - r).sum()))
+    group[mean_name] = (group['rank'] + (101 * (num_weeks - group['weeks_on_board']))) / num_weeks
+    group[popul_name] = group['popul']
+    return df_to_join.join(group.drop(columns=['rank', 'weeks_on_board', 'popul']), 'song')
+
+
+def aggregate_sixties_and_2020s(df: pd.DataFrame):
+    df.date = pd.to_datetime(df.date, format='%Y-%m-%d')
+    # Consider all dates before 1960 as 1960 and all dates after 2019 as 2019
+    df.date = df.date.apply(lambda d: datetime(year=1960, month=12, day=31) if d.year < 1960 else d)
+    df.date = df.date.apply(lambda d: datetime(year=2019, month=12, day=31) if d.year > 2019 else d)
+    return df
 
 
 def add_chart_info(df: pd.DataFrame, chart_path: str) -> pd.DataFrame:
     assert not (df.duplicated('song', keep=False)).any(), 'df should not have duplicated songs'
     charts = pd.read_csv(chart_path)
-    charts.date = pd.to_datetime(charts.date, format='%Y-%m-%d')
+    charts = aggregate_sixties_and_2020s(charts)
     df.date = pd.to_datetime(df.date, format='%Y-%m-%d')
-    # Consider all dates before 1960 as 1960 and all dates after 2020 as 2020
-    charts.date = charts.date.apply(lambda d: datetime(year=1960, month=d.month, day=d.day) if d.year < 1960 else d)
-    charts.date = charts.date.apply(lambda d: datetime(year=2020, month=d.month, day=d.day) if d.year > 2020 else d)
 
     total_num_weeks = abs((df.iloc[0].date - df.iloc[-1].date).days / 7)
     df = __mean_rank_join(charts, df, total_num_weeks, 'rank_alltime', 'popul_alltime')
@@ -79,20 +77,18 @@ def add_chart_info(df: pd.DataFrame, chart_path: str) -> pd.DataFrame:
     return df
 
 
-def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
-    df = df[df.lyrics.notna()]  # remove NaN
-    df = df[df.genre.notna()]
-    df = df[df.lyrics.str.split().str.len() <= 2000]  # remove books(?)
-    df = df[df.lyrics.str.split().str.len() > 5]  # remove almost-empty strings
+def clean_dataset(df: pd.DataFrame, clean_genre=True, clean_lyrics=True) -> pd.DataFrame:
     df = df[df['artist'] != 'Glee Cast']  # bravi ma non orginali
-    df['lyrics'] = df['lyrics'].apply(_clean_lyrics)
-    df['genre'] = df['genre'].apply(_get_genre)
-    df = df[df.genre != 'wtf']
-<<<<<<< HEAD
+    if clean_lyrics:
+        df = df[df.lyrics.notna()]  # remove NaN
+        df = df[df.lyrics.str.split().str.len() <= 2000]  # remove books(?)
+        df = df[df.lyrics.str.split().str.len() > 5]  # remove almost-empty strings
+        df['lyrics'] = df['lyrics'].apply(_clean_lyrics)
+    if clean_genre:
+        df = df[df.genre.notna()]
+        df['genre'] = df['genre'].apply(get_genre)
+        df = df[df.genre != None]
     return df[df.groupby('artist').artist.transform('count') > 5]  # leaves only artists with n+ songs
-=======
-    return df[df.groupby('artist').artist.transform('count') >= 20]  # leaves only artists with n+ songs
->>>>>>> d0181a7... Binary classification
 
 
 def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
@@ -112,27 +108,19 @@ def select_random_authors(df, n_authors, seed):
     return df
 
 
-<<<<<<< HEAD
-def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, random_authors=0):
-=======
-def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, random_authors=0, seed=42) -> typing.Union[pd.DataFrame, typing.Dict[str, np.ndarray]]:
->>>>>>> d0181a7... Binary classification
+def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, clean_genre=True, clean_lyrics=True, random_authors=0, seed=42) -> typing.Union[pd.DataFrame, typing.Dict[str, np.ndarray]]:
     if pickle_path is not None and os.path.exists(pickle_path) and not force:
         with open(pickle_path, 'rb') as f:
             dataset = pickle.load(f)
     else:
         df = pd.read_csv(lyrics_path)
-        dataset = clean_dataset(df)
-<<<<<<< HEAD
+        dataset = clean_dataset(df, clean_genre=clean_genre, clean_lyrics=clean_lyrics)
+        dataset = add_chart_info(dataset, 'data/charts.csv')
+        dataset = dataset.drop(columns=['Unnamed: 0', 'Unnamed: 0.1', 'genres'])
         
         if pickle_path is not None:
             with open(pickle_path, 'wb') as f:
                 pickle.dump(dataset, f)
-=======
-        dataset = add_chart_info(dataset, 'data/charts.csv')
-        with open(pickle_path, 'wb') as f:
-            pickle.dump(dataset, f)
->>>>>>> d0181a7... Binary classification
     if random_authors != 0:
         dataset = select_random_authors(dataset, random_authors, seed)
     if as_dict:

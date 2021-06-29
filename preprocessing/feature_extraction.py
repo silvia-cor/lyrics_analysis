@@ -2,7 +2,6 @@ import nltk
 import numpy as np
 import typing
 from nltk.corpus import stopwords
-import prosodic
 from scipy.sparse import hstack, csr_matrix
 from sklearn.preprocessing import normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
