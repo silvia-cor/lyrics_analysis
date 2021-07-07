@@ -1,7 +1,6 @@
 data
 output
 access_tokens.py
-.vscode
 __pycache__
 .vscode
 *.pyc

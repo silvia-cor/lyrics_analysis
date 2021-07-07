@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+from enum import unique
+>>>>>>> origin/class
 import pandas as pd
 import re
 import numpy as np
@@ -6,7 +10,11 @@ import os
 import typing
 from datetime import datetime
 from tqdm import tqdm
-
+from preprocessing.feature_extraction import tokenize_nopunct
+from datetime import datetime
+from tqdm import tqdm
+from datetime import datetime
+from tqdm import tqdm
 
 genres_acc = ['pop', 'progressive rock', 'rock', 'metal', 'country', 'rnb', 'funk', 'hip-hop', 'alternative',
               'rap', 'disco', 'folk', 'jazz', 'blues', 'indie', 'christmas', 'soul']
@@ -97,6 +105,10 @@ def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
     dataset['artists'] = np.array(df.artist)
     dataset['songs'] = np.array(df.song)
     dataset['genres'] = np.array(df.genre)
+    dataset['rank'] = np.array(df.rank_alltime)
+    dataset['popularity'] = np.array(df.popul_alltime)
+    print(len(dataset['artists']))
+    print(len(np.unique(dataset['artists'])))
     return dataset
 
 
@@ -108,7 +120,7 @@ def select_random_authors(df, n_authors, seed):
     return df
 
 
-def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, clean_genre=True, clean_lyrics=True, random_authors=0, seed=42) -> typing.Union[pd.DataFrame, typing.Dict[str, np.ndarray]]:
+def fetch_dataset(pickle_path, lyrics_path, force=False, as_dict=False, random_authors=0, seed=42) -> typing.Union[pd.DataFrame, typing.Dict[str, np.ndarray]]:
     if pickle_path is not None and os.path.exists(pickle_path) and not force:
         with open(pickle_path, 'rb') as f:
             dataset = pickle.load(f)
