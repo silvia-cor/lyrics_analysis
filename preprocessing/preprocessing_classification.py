@@ -82,7 +82,7 @@ def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
     df['lyrics'] = df['lyrics'].apply(_clean_lyrics)
     df['genre'] = df['genre'].apply(_get_genre)
     df = df[df.genre != 'wtf']
-    return df[df.groupby('artist').artist.transform('count') >= 20]  # leaves only artists with n+ songs
+    return df[df.groupby('artist').artist.transform('count') >= 10]  # leaves only artists with n+ songs
 
 
 def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
@@ -91,6 +91,10 @@ def df_as_dict(df: pd.DataFrame) -> typing.Dict[str, np.ndarray]:
     dataset['artists'] = np.array(df.artist)
     dataset['songs'] = np.array(df.song)
     dataset['genres'] = np.array(df.genre)
+    dataset['rank'] = np.array(df.rank_alltime)
+    dataset['popularity'] = np.array(df.popul_alltime)
+    print(len(dataset['artists']))
+    print(len(np.unique(dataset['artists'])))
     return dataset
 
 

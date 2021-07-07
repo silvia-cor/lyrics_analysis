@@ -2,18 +2,12 @@ import nltk
 import numpy as np
 import typing
 from nltk.corpus import stopwords
-import prosodic
+import eng_to_ipa as ipa
 from scipy.sparse import hstack, csr_matrix
 from sklearn.preprocessing import normalize
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.feature_selection import SelectKBest, chi2
-import sys
-import os
-from joblib import Parallel, delayed
-from tqdm import tqdm
+from sklearn.feature_selection import SelectKBest, chi2, f_regression
 
-
-# TODO: feature selection for everything
 
 # tokenize text without punctuation
 def tokenize_nopunct(text: str) -> typing.List[str]:
@@ -67,25 +61,8 @@ def _POS_tags(docs):
     return pos_tags
 
 
-# Todo: parallelize if you can
-def _prosody(docs):
-    prosodies = []
-    for doc in tqdm(docs):
-        for line in doc.splitlines():
-            print(line)
-            sys.__stdout__ = sys.stdout
-            sys.stdout = open(os.devnull, 'w')
-            prosody = prosodic.Text(line)
-            prosody.parse()
-            sub_lines = []
-            sys.stdout = sys.__stdout__
-            for parse in prosody.bestParses():
-                if parse is not None:
-                    print(str(parse))
-                    sub_lines.append(str(parse))
-            prosodies.append(''.join(sub_line for sub_line in sub_lines))
-            #lines = [str(parse) for parse in prosody.bestParses()]
-    return prosodies
+def _phonetics(docs):
+    return [ipa.convert(doc) for doc in docs]
 
 
 def _ngrams(docs_tr, docs_te, y_tr, analyzer, ngram_range, lowercase=True):
@@ -98,16 +75,19 @@ def _ngrams(docs_tr, docs_te, y_tr, analyzer, ngram_range, lowercase=True):
     return X_tr, X_te, feat_names
 
 
-def _feature_selection(X_tr, X_te, y_tr, feature_selection_ratio=0.05):
+def _feature_selection(X_tr, X_te, y_tr, feature_selection_ratio=0.1):
     num_feats = int(X_tr.shape[1] * feature_selection_ratio)  # number of selected features (must be int)
-    selector = SelectKBest(chi2, k=num_feats)
+    if isinstance(y_tr[0], float):
+        selector = SelectKBest(f_regression, k=num_feats)
+    else:
+        selector = SelectKBest(chi2, k=num_feats)
     X_tr = selector.fit_transform(X_tr, y_tr)
     X_te = selector.transform(X_te)
     return X_tr, X_te, selector.get_support()
 
 
-def extract_features_base(docs_tr, docs_te, y_tr):
-    print(f'----- BASE FEATURE EXTRACTION -----')
+def extract_features_author(docs_tr, docs_te, y_tr):
+    print(f'----- AUTHORIAL FEATURE EXTRACTION -----')
     feat_names = []
 
     # final matrixes of features
@@ -154,18 +134,19 @@ def extract_features_wordngrams(docs_tr, docs_te, y_tr):
     return X_tr.toarray(), X_te.toarray(), feat_names
 
 
-def extract_features_prosody(docs_tr, docs_te, y_tr):
-    print(f'----- PROSODY-NGRAMS FEATURE EXTRACTION -----')
-    X_tr, X_te, feat_names = _ngrams(_prosody(docs_tr), _prosody(docs_te), y_tr, 'char', (2, 5), lowercase=False)
-    print(f'task prosody-ngrams (#features={X_tr.shape[1]}) [Done]')
+def extract_features_phonetics(docs_tr, docs_te, y_tr):
+    print(f'----- PHONETICS-NGRAMS FEATURE EXTRACTION -----')
+    X_tr, X_te, feat_names = _ngrams(_phonetics(docs_tr), _phonetics(docs_te), y_tr, 'char', (2, 5))
+    print(f'task phonetics-ngrams (#features={X_tr.shape[1]}) [Done]')
     return X_tr.toarray(), X_te.toarray(), feat_names
 
 
 # not counting prosody
 def extract_features_all(docs_tr, docs_te, y_tr):
-    X_tr_base, X_te_base, base_names = extract_features_base(docs_tr, docs_te, y_tr)
+    X_tr_author, X_te_author, author_names = extract_features_author(docs_tr, docs_te, y_tr)
     X_tr_charngrams, X_te_charngrams, char_names = extract_features_charngrams(docs_tr, docs_te, y_tr)
     X_tr_wordngrams, X_te_wordngrams, word_names = extract_features_wordngrams(docs_tr, docs_te, y_tr)
-    return np.hstack((X_tr_base, X_tr_charngrams, X_tr_wordngrams)), \
-           np.hstack((X_te_base, X_te_charngrams, X_te_wordngrams)), \
-           base_names + char_names + word_names
+    X_tr_phonetics, X_te_phonetics, phonetics_names = extract_features_phonetics(docs_tr, docs_te, y_tr)
+    return np.hstack((X_tr_author, X_tr_charngrams, X_tr_wordngrams, X_tr_phonetics)), \
+           np.hstack((X_te_author, X_te_charngrams, X_te_wordngrams, X_te_phonetics)), \
+           author_names + char_names + word_names + phonetics_names
